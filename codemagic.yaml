@@ -1,0 +1,57 @@
+workflows:
+  titan-android:
+    name: Titan - Android Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+    scripts:
+      - name: إنشاء مجلدات المنصات إذا كانت غير موجودة
+        script: |
+          if [ ! -d "android" ]; then
+            flutter create . --platforms=android --org com.titan.app
+          fi
+      - name: التأكد من صلاحية الإنترنت بالمانيفست
+        script: |
+          python3 - <<'PYEOF'
+          import re
+          path = "android/app/src/main/AndroidManifest.xml"
+          with open(path) as f:
+              content = f.read()
+          if "android.permission.INTERNET" not in content:
+              content = re.sub(
+                  r'(<manifest[^>]*>)',
+                  r'\1\n    <uses-permission android:name="android.permission.INTERNET"/>',
+                  content,
+                  count=1,
+              )
+              with open(path, "w") as f:
+                  f.write(content)
+          PYEOF
+      - name: تحميل الحزم
+        script: flutter pub get
+      - name: بناء APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+
+  titan-ios:
+    name: Titan - iOS Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: إنشاء مجلدات المنصات إذا كانت غير موجودة
+        script: |
+          if [ ! -d "ios" ]; then
+            flutter create . --platforms=ios --org com.titan.app
+          fi
+      - name: تحميل الحزم
+        script: flutter pub get
+      - name: بناء iOS (بدون توقيع - للاختبار)
+        script: flutter build ios --release --no-codesign
+    artifacts:
+      - build/ios/iphoneos/*.app
